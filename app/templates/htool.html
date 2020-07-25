@@ -1,0 +1,485 @@
+{% extends "layout.html" %}
+{% block content %}
+<div class="htool">
+	<div class="search_parameters">
+		<h3>Search parameters</h3>
+		<p>Startdate: {{search_parameters[2]}}</p>
+		<p>Enddate: {{search_parameters[3]}}</p>
+		<p>Chosen Sample size: {{search_parameters[4]}}</p>
+		<p>Querys: <b>{{search_parameters[0]}}</b> and <b>{{search_parameters[1]}}</b></p>
+		<p>Seperated Search: {{search_parameters[5]}}</p>
+		<p>Total tweets collected: {{search_parameters[6]}}</p>
+	</div>
+	<canvas id="timeline" width="1000" height="400"></canvas>
+	<canvas id="lang_1" width="420" height="250"></canvas>
+	<canvas id="lang_same" width="420" height="250"></canvas>
+	<canvas id="lang_2" width="420" height="250"></canvas>
+	<canvas id="inter_1" width="420" height="250"></canvas>
+	<canvas id="inter_same" width="420" height="250"></canvas>
+	<canvas id="inter_2" width="420" height="250"></canvas>
+	<canvas id="co_1" width="420" height="250"></canvas>
+	<canvas id="co_same" width="420" height="250"></canvas>
+	<canvas id="co_2" width="420" height="250"></canvas>
+	<script>
+		//timeline chart
+		Chart.defaults.global.responsive = false;
+		var data_timeline = {
+			datasets: [{
+				data: [{% for item in dic["timeline"]["query1"]["data"] %}
+				{x:moment("{{item[0]}}"), y:{{item[1]}}},
+				{% endfor %}],
+				label: "{{timeline_legends[0]}}",
+				borderColor: "#3e95cd",
+				pointRadius: 1.2,
+				fill: false,
+				lineTension: 0.1,
+				borderWidth: 2.5
+			}, {
+				data: [{% for item in dic["timeline"]["same"]["data"] %}
+				{x:moment("{{item[0]}}"), y:{{item[1]}}},
+				{% endfor %}],
+				label: "{{timeline_legends[1]}}",
+				borderColor: "rgba(192,15,34,0.7)",
+				pointRadius: 1.2,
+				fill: false,
+				lineTension: 0.1,
+				borderWidth: 2.5
+			}, {
+				data: [{% for item in dic["timeline"]["query2"]["data"] %}
+				{x:moment("{{item[0]}}"), y:{{item[1]}}},
+				{% endfor %}],
+				label: "{{timeline_legends[2]}}",
+				borderColor: "rgba(192,64,173,0.7)",
+				pointRadius: 1.2,
+				fill: false,
+				lineTension: 0.1,
+				borderWidth: 2.5
+			}]
+		}
+		var timeline_chart = new Chart(document.getElementById("timeline"), {
+			type: "line",
+			data: data_timeline,
+			options: {
+				title: {
+					display: true,
+					text: "Timeline (UTC timezone)"
+				},
+			    scales: {
+			    	xAxes: [{
+			    		type: "time",
+			    		distribution: 'linear',
+			    		time: {
+			    			unit: "hour",
+			    			displayFormats: {
+			    				hour: "D MMM, HH:00"
+			    			}
+			    		},
+			    		ticks: {
+			    			major: {
+			    				enabled: true,
+			    				fontStyle: 'bold'
+			    			}
+			    		}
+			    	}],
+			    	yAxes: [{
+			    		ticks: {
+			    			beginAtZero: true
+			    		}
+			    	}]
+			    }
+			}
+		});
+	</script>
+	<script>
+		//globall setting
+		Chart.defaults.global.responsive = false;
+		//graph colors
+		var backgroundColor = [
+					"rgba(192,15,34,0.7)",
+					"rgba(34,72,193,0.7)",
+					"rgba(192,64,173,0.7)",
+					"rgba(23,84,25,0.7)",
+					"rgba(87,23,192,0.7"]
+		//Graphs
+		//Language Graphs
+		//first
+		var data_lang_1 = {
+			labels: [{% for item in dic["languages"]["query1"]["labels"][:5] %}
+				"{{item}}",
+				{% endfor %}],
+			datasets: [{
+				label: "{{lang_legends[0]}}",
+				backgroundColor: [
+					"#71b949b4"
+					],
+				data: [{% for item in dic["languages"]["query1"]["values"][:5] %}
+					{{item}},
+					{% endfor %}]
+			}]
+		}
+		var lang_1_chart = new Chart(document.getElementById("lang_1"), {
+			type: "horizontalBar",
+			data: data_lang_1,
+			options: {
+				legend: {
+					labels: {
+						boxWidth: 0
+					}
+				},
+				scales: {
+					xAxes: [{
+						ticks: {
+							beginAtZero: true
+						}
+					}]
+				},
+				tooltips: {
+					callbacks: {
+						label: function(tooltipItem, data) {
+							var list = [{% for item in dic["languages"]["query1"]["percentages"][:5] %}
+										"{{item}}",
+										{% endfor %}]
+							return tooltipItem.value + ": " + list[tooltipItem.index]
+						}
+					}
+				}
+			}
+		});
+		//second
+		var data_lang_same = {
+			labels: [{% for item in dic["languages"]["same"]["labels"][:5] %}
+				"{{item}}",
+				{% endfor %}],
+			datasets: [{
+				label: "{{lang_legends[1]}}",	
+				backgroundColor: backgroundColor,
+				data: [{% for item in dic["languages"]["same"]["values"][:5] %}
+					{{item}},
+					{% endfor %}]
+			}]
+		}
+		var lang_same_chart = new Chart(document.getElementById("lang_same"), {
+			type: "horizontalBar",
+			data: data_lang_same,
+			options: {
+				legend: {
+					labels: {
+						boxWidth: 0
+					}
+				},
+				scales: {
+					xAxes: [{
+						ticks: {
+							beginAtZero: true
+						}
+					}]
+				},
+				tooltips: {
+					callbacks: {
+						label: function(tooltipItem, data) {
+							var list = [{% for item in dic["languages"]["same"]["percentages"][:5] %}
+										"{{item}}",
+										{% endfor %}]
+							return tooltipItem.value + ": " + list[tooltipItem.index]
+						}
+					}
+				}
+			}
+		});
+		//third
+		var data_lang_2 = {
+			labels: [{% for item in dic["languages"]["query2"]["labels"][:5] %}
+				"{{item}}",
+				{% endfor %}],
+			datasets: [{
+				label: "{{lang_legends[2]}}",
+				backgroundColor: backgroundColor,
+				data: [{% for item in dic["languages"]["query2"]["values"][:5] %}
+					{{item}},
+					{% endfor %}]
+			}]
+		}
+		var lang_2_chart = new Chart(document.getElementById("lang_2"), {
+			type: "horizontalBar",
+			data: data_lang_2,
+			options: {
+				legend: {
+					labels: {
+						boxWidth: 0
+					}
+				},
+				scales: {
+					xAxes: [{
+						ticks: {
+							beginAtZero: true
+						}
+					}]
+				},
+				tooltips: {
+					callbacks: {
+						label: function(tooltipItem, data) {
+							var list = [{% for item in dic["languages"]["query2"]["percentages"][:5] %}
+										"{{item}}",
+										{% endfor %}]
+							return tooltipItem.value + ": " + list[tooltipItem.index]
+						}
+					}
+				}
+			}
+		});
+
+		// Interface Graphs
+		//first
+		var data_inter_1 = {
+			labels: [{% for item in dic["interfaces"]["query1"]["labels"][:6] %}
+				"{{item}}",
+				{% endfor %}],
+			datasets: [{
+				label: "{{inter_legends[0]}}",
+				backgroundColor: backgroundColor,
+				data: [{% for item in dic["interfaces"]["query1"]["values"][:6] %}
+					{{item}},
+					{% endfor %}]
+			}]
+		}
+		var inter_1_chart = new Chart(document.getElementById("inter_1"), {
+			type: "horizontalBar",
+			data: data_inter_1,
+			options: {
+				legend: {
+					labels: {
+						boxWidth: 0
+					}
+				},
+				scales: {
+					xAxes: [{
+						ticks: {
+							beginAtZero: true
+						}
+					}]
+				},
+				tooltips: {
+					callbacks: {
+						label: function(tooltipItem, data) {
+							var list = [{% for item in dic["interfaces"]["query1"]["percentages"][:6] %}
+										"{{item}}",
+										{% endfor %}]
+							return tooltipItem.value + ": " + list[tooltipItem.index]
+						}
+					}
+				}
+			}
+		});
+		//second
+		var data_inter_same = {
+			labels: [{% for item in dic["interfaces"]["same"]["labels"][:6] %}
+				"{{item}}",
+				{% endfor %}],
+			datasets: [{
+				label: "{{inter_legends[1]}}",
+				backgroundColor: backgroundColor,
+				data: [{% for item in dic["interfaces"]["same"]["values"][:6] %}
+					{{item}},
+					{% endfor %}]
+			}]
+		}
+		var inter_same_chart = new Chart(document.getElementById("inter_same"), {
+			type: "horizontalBar",
+			data: data_inter_same,
+			options: {
+				legend: {
+					labels: {
+						boxWidth: 0
+					}
+				},
+				scales: {
+					xAxes: [{
+						ticks: {
+							beginAtZero: true
+						}
+					}]
+				},
+				tooltips: {
+					callbacks: {
+						label: function(tooltipItem, data) {
+							var list = [{% for item in dic["interfaces"]["same"]["percentages"][:6] %}
+										"{{item}}",
+										{% endfor %}]
+							return tooltipItem.value + ": " + list[tooltipItem.index]
+						}
+					}
+				}
+			}
+		});
+		//third
+		var data_inter_2 = {
+			labels: [{% for item in dic["interfaces"]["query2"]["labels"][:6] %}
+				"{{item}}",
+				{% endfor %}],
+			datasets: [{
+				label: "{{inter_legends[2]}}",
+				backgroundColor: backgroundColor,
+				data: [{% for item in dic["interfaces"]["query2"]["values"][:6] %}
+					{{item}},
+					{% endfor %}]
+			}]
+		}
+		var inter_2_chart = new Chart(document.getElementById("inter_2"), {
+			type: "horizontalBar",
+			data: data_inter_2,
+			options: {
+				legend: {
+					labels: {
+						boxWidth: 0
+					}
+				},
+				scales: {
+					xAxes: [{
+						ticks: {
+							beginAtZero: true
+						}
+					}]
+				},
+				tooltips: {
+					callbacks: {
+						label: function(tooltipItem, data) {
+							var list = [{% for item in dic["interfaces"]["query2"]["percentages"][:6] %}
+										"{{item}}",
+										{% endfor %}]
+							return tooltipItem.value + ": " + list[tooltipItem.index]
+						}
+					}
+				}
+			}
+		});
+
+		//Co-hashtag Graphs
+		//first
+		var data_co_1 = {
+			labels: [{% for item in dic["co_hashtags"]["query1"]["labels"][:10] %}
+			"{{item}}",
+			{% endfor %}],
+			datasets: [{
+				label: "{{co_legends[0]}}",
+				backgroundColor: backgroundColor,
+				data: [{% for item in dic["co_hashtags"]["query1"]["values"][:10] %}
+				{{item}},
+				{% endfor %}]
+			}]
+		}
+		var co_chart_1 = new Chart(document.getElementById("co_1"), {
+			type: "horizontalBar",
+			data: data_co_1,
+			options: {
+				legend: {
+					labels: {
+						boxWidth: 0
+					}
+				},
+				scales: {
+					xAxes: [{
+						ticks: {
+							beginAtZero: true
+						}
+					}]
+				},
+				tooltips: {
+					callbacks: {
+						label: function(tooltipItem, data) {
+							var list = [{% for item in dic["co_hashtags"]["query1"]["percentages"][:10] %}
+										"{{item}}",
+										{% endfor %}]
+							return tooltipItem.value + ": " + list[tooltipItem.index]
+						}
+					}
+				}
+			}
+		});
+		//second
+		var data_co_same = {
+			labels: [{% for item in dic["co_hashtags"]["same"]["labels"][:10] %}
+			"{{item}}",
+			{% endfor %}],
+			datasets: [{
+				label: "{{co_legends[1]}}",
+				backgroundColor: backgroundColor,
+				data: [{% for item in dic["co_hashtags"]["same"]["values"][:10] %}
+				{{item}},
+				{% endfor %}]
+			}]
+		}
+		var co_chart_same = new Chart(document.getElementById("co_same"), {
+			type: "horizontalBar",
+			data: data_co_same,
+			options: {
+				legend: {
+					labels: {
+						boxWidth: 0
+					}
+				},
+				scales: {
+					xAxes: [{
+						ticks: {
+							beginAtZero: true
+						}
+					}]
+				},
+				tooltips: {
+					callbacks: {
+						label: function(tooltipItem, data) {
+							var list = [{% for item in dic["co_hashtags"]["same"]["percentages"][:10] %}
+										"{{item}}",
+										{% endfor %}]
+							return tooltipItem.value + ": " + list[tooltipItem.index]
+						}
+					}
+				}
+			}
+		});
+		//third
+		var data_co_2 = {
+			labels: [{% for item in dic["co_hashtags"]["query2"]["labels"][:10] %}
+			"{{item}}",
+			{% endfor %}],
+			datasets: [{
+				label: "{{co_legends[2]}}",
+				backgroundColor: backgroundColor,
+				data: [{% for item in dic["co_hashtags"]["query2"]["values"][:10] %}
+				{{item}},
+				{% endfor %}]
+			}]
+		}
+		var co_chart_2 = new Chart(document.getElementById("co_2"), {
+			type: "horizontalBar",
+			data: data_co_2,
+			options: {
+				legend: {
+					labels: {
+						boxWidth: 0
+					}
+				},
+				scales: {
+					xAxes: [{
+						ticks: {
+							beginAtZero: true
+						}
+					}]
+				},
+				tooltips: {
+					callbacks: {
+						label: function(tooltipItem, data) {
+							var list = [{% for item in dic["co_hashtags"]["query2"]["percentages"][:10] %}
+										"{{item}}",
+										{% endfor %}]
+							return tooltipItem.value + ": " + list[tooltipItem.index]
+						}
+					}
+				}
+			}
+		});
+	</script>
+	{{ table_1 | safe }}
+	{{ table_same | safe }}
+	{{ table_2 | safe }}
+</div>
+{% endblock %}
