@@ -2,6 +2,7 @@ from twitter import Twitter, OAuth, TwitterHTTPError
 import time
 from datetime import datetime, timedelta
 import pandas as pd
+from pandas import json_normalize
 import re
 from dateutil import parser
 
@@ -42,7 +43,7 @@ class twTool():
 			self.howMany_option = True
 		else:
 			self.howMany_option = False
-		self.howMany = howMany
+		self.howMany = int(howMany/100)
 
 		self.search_option = search_option
 
@@ -518,6 +519,21 @@ class twTool():
 			}	
 		}
 		return dic
+
+	def tweets_to_df(self):
+		"""
+		
+		"""
+		df1 = json_normalize(self.results_1)
+		df1["hashtag"] = self.querys[0]
+		df_same = json_normalize(self.results_same)
+		df_same["hashtag"] = "both"
+		df2 = json_normalize(self.results_2)
+		df2["hashtag"] = self.querys[1]
+
+		df_all = df1.append((df_same, df2))
+		return df_all
+
 
 def api_status():
 	"""
