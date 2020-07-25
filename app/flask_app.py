@@ -4,6 +4,7 @@ import pandas as pd
 import datetime
 from dateutil import parser
 from datetime import timedelta
+import os
 
 app = Flask(__name__)
 app.secret_key = b'_0#e5L"F4k8zn6xeJ]/'
@@ -74,7 +75,7 @@ def home():
 
 			#check if howMany is given
 			if howMany_option:
-				session["howMany"] = int(howMany)
+				session["howMany"] = int(howMany) if int(howMany) > 100 else 100
 			else:
 				session.pop("howMany", None)
 			#create session variables
@@ -152,11 +153,26 @@ def htool():
 
 		#create search_parameters for website
 		search_parameters = [session.get("query1"), session.get("query2"), since, until, howMany, session.get("search_option"), len(outcome.results_raw)]
-			
+
+		#csv download
+		df = outcome.tweets_to_df()
+
+		csv_name = datetime.datetime.now().strftime('%Y%m%d-%H%M%S')
+		query1 = session.get("query1")[1:]
+		query2 = session.get("query2")[1:]
+		csv_filename = f"THA-{csv_name}-{query1}-{query2}.csv"
+
+		outpath = os.path.join('static', 'downloads')
+		if not os.path.isdir(outpath):
+			os.makedirs(outpath)
+		csv_download_link = os.path.join(outpath, csv_filename)
+
+		df.to_csv(csv_download_link, sep=";")
+
 		return render_template("htool.html",
 			table_1=html_table_1, table_same=html_table_same, table_2=html_table_2,
 			lang_legends=lang_legends, inter_legends=inter_legends, co_legends=co_legends, timeline_legends=timeline_legends,
-			dic=dic, search_parameters=search_parameters)
+			dic=dic, search_parameters=search_parameters, csv_download_link=csv_download_link)
 
 @app.route("/about")
 def about():
