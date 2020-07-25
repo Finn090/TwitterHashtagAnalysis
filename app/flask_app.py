@@ -75,7 +75,7 @@ def home():
 
 			#check if howMany is given
 			if howMany_option:
-				session["howMany"] = int(howMany)
+				session["howMany"] = int(howMany) if int(howMany) > 100 else 100
 			else:
 				session.pop("howMany", None)
 			#create session variables
@@ -156,19 +156,17 @@ def htool():
 
 		#csv download
 		df = outcome.tweets_to_df()
-		#filename
+
 		csv_name = datetime.datetime.now().strftime('%Y%m%d-%H%M%S')
 		query1 = session.get("query1")[1:]
 		query2 = session.get("query2")[1:]
 		csv_filename = f"THA-{csv_name}-{query1}-{query2}.csv"
-		#folder
+
 		outpath = os.path.join('static', 'downloads')
 		if not os.path.isdir(outpath):
 			os.makedirs(outpath)
-		#download link
 		csv_download_link = os.path.join(outpath, csv_filename)
-		#csv_download_link = Markup(f'<p><a href="{csv_download_link}">Download results.</a></p>')
-		#create csv
+
 		df.to_csv(csv_download_link, sep=";")
 
 		return render_template("htool.html",
