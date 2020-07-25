@@ -1,0 +1,53 @@
+{% extends "layout.html" %}
+{% block content %}
+<div class="inputs">
+	<h2>Search</h2>
+	<form method="GET">
+		<div>
+			<input type="checkbox" name="time_option1" id="time_option1" onclick="check_box('time_option1', 'since')" value="True">
+			<label for="time_option1">Specify date of search start?</label>
+			<input type="date" name="since" id="since" style="display:none">
+		</div>
+		<div>
+			<input type="checkbox" name="time_option2" id="time_option2" onclick="check_box('time_option2', 'until')" value="True">
+			<label for="time_option2">Specify date of search end?</label>
+			<input type="date" name="until" id="until" style="display:none">
+		</div>
+		<div>
+			<input type="checkbox" name="howMany_option" id="howMany_option" onclick="check_box('howMany_option', 'howMany')">
+			<label for="howMany_option">If <strong>no</strong> date or <strong>only</strong> startdate was chosen: Specify search by samplesize?</label>
+			<input type="number" name="howMany" id="howMany" style="display:none">
+		</div>
+		<div>
+			<input type="text" name="query1" placeholder="first hashtag">
+			<input type="text" name="query2" placeholder="second hashtag">
+		</div>
+		<div>
+			<input type="checkbox" id="search_option" name="search_option" value= "True">
+			<label for="search_option">Do you want to make a seperated search?</label>
+		</div>
+		<div>
+			<input type="submit" value="submit">
+		</div>
+	</form>
+</div>
+<div class="description">
+	<h2>Description of the input fields</h2>
+	{% if status %}
+	<p>Remaining searches of the Twitter Key: <b>{{status[0]}}</b> and reset time: <b>{{status[1]}}</b></p>
+	{% endif %}
+</div>
+
+{% if error %}
+<p>{{error}}</p>
+{% endif %}
+
+{% if date1 %}
+<p>{{ date1 }}</p>
+{% endif %}
+
+{% if date2 %}
+<p>{{date2}}</p>
+{% endif %}
+
+{% endblock %}

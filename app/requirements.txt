@@ -1,0 +1,5 @@
+flask
+pandas
+twitter
+chart.js
+moment.js
