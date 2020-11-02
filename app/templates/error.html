@@ -1,5 +1,9 @@
 {% extends "layout.html" %}
 {% block content %}
 <p>Rate limit exceeded.</p>
-<p>Remaining searches of the Twitter Key: <b>{{status[0]}}</b> and reset time: <b>{{status[1]}}</b></p>
+<div>Status of the Twitter API Keys:
+		{% for ele in status %} 
+			<p>Remaining Searches: <b>{{ele[0]}}</b> and reset time: <b>{{ele[1]}}</b></p>
+		{% endfor %}
+		</div>
 {% endblock %}

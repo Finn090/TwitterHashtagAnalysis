@@ -1,53 +1,87 @@
 {% extends "layout.html" %}
 {% block content %}
-<div class="inputs">
-	<h2>Search</h2>
-	<form method="GET">
-		<div>
-			<input type="checkbox" name="time_option1" id="time_option1" onclick="check_box('time_option1', 'since')" value="True">
-			<label for="time_option1">Specify date of search start?</label>
-			<input type="date" name="since" id="since" style="display:none">
-		</div>
-		<div>
-			<input type="checkbox" name="time_option2" id="time_option2" onclick="check_box('time_option2', 'until')" value="True">
-			<label for="time_option2">Specify date of search end?</label>
-			<input type="date" name="until" id="until" style="display:none">
-		</div>
-		<div>
-			<input type="checkbox" name="howMany_option" id="howMany_option" onclick="check_box('howMany_option', 'howMany')">
-			<label for="howMany_option">If <strong>no</strong> date or <strong>only</strong> startdate was chosen: Specify search by samplesize?</label>
-			<input type="number" name="howMany" id="howMany" style="display:none">
-		</div>
-		<div>
-			<input type="text" name="query1" placeholder="first hashtag">
-			<input type="text" name="query2" placeholder="second hashtag">
-		</div>
-		<div>
-			<input type="checkbox" id="search_option" name="search_option" value= "True">
-			<label for="search_option">Do you want to make a seperated search?</label>
-		</div>
-		<div>
-			<input type="submit" value="submit">
-		</div>
-	</form>
-</div>
-<div class="description">
-	<h2>Description of the input fields</h2>
-	{% if status %}
-	<p>Remaining searches of the Twitter Key: <b>{{status[0]}}</b> and reset time: <b>{{status[1]}}</b></p>
-	{% endif %}
-</div>
+			<div class="row">
+				<div class="col-sm-4">
+					<div class="card bg-info">
+						<div class="card-header">
+							<h2>Search</h2>
+						</div>
+						<div class="card-body">
+							<form method="GET">
+								<div class="input">
+									<input type="text" name="query1" placeholder="first hashtag">
+									<input type="text" name="query2" placeholder="second hashtag">
+								</div>
+								<div class="input">
+									<input type="checkbox" name="time_option1" id="time_option1" onclick="check_box('time_option1', 'since')" value="True">
+									<label for="time_option1">Specify date of search start?</label>
+									<input type="date" name="since" id="since" style="display:none">
+								</div>
+								<div class="input">
+									<input type="checkbox" name="time_option2" id="time_option2" onclick="check_box('time_option2', 'until')" value="True">
+									<label for="time_option2">Specify date of search end?</label>
+									<input type="date" name="until" id="until" style="display:none;">
+								</div>
+								<div class="input">
+									<input type="checkbox" name="howMany_option" id="howMany_option" onclick="check_box('howMany_option', 'howMany')">
+									<label for="howMany_option">Specify search by samplesize?</label>
+									<input type="number" name="howMany" id="howMany" style="display:none">
+								</div>
+								<div class="input">
+									<input type="checkbox" id="search_option" name="search_option" value="True">
+									<label for="search_option">Do you want to make a separated search?</label>
+								</div>
+								<div>
+									<input type="submit" value="submit">
+								</div>
+							</form>
+							<div>
+								{% if error %}
+								<p class="error">{{ error }}</p>
+								{% endif %}
 
-{% if error %}
-<p>{{error}}</p>
-{% endif %}
+								{% if date1 %}
+								<p class="error">{{ date1 }}</p>
+								{% endif %}
 
-{% if date1 %}
-<p>{{ date1 }}</p>
-{% endif %}
-
-{% if date2 %}
-<p>{{date2}}</p>
-{% endif %}
-
+								{% if date2 %}
+								<p class="error">{{ date2 }}</p>
+								{% endif %}
+							</div>
+						</div>
+					</div>
+					<div class="card bg-info">
+						{% if status %}
+						<div class="card-header">
+							<h2>Status of the Twitter API Keys:</h2>
+						</div>
+						<div class="card-body">
+							{% for ele in status %} 
+								<p>Remaining Searches: <b>{{ele[0]}}</b> and reset time: <b>{{ele[1]}}</b></p>
+							{% endfor %}
+						</div>
+						{% endif %}
+					</div>
+				</div>
+				<div class="col-sm-8">
+					<div class="card bg-info">
+						<div class="card-header">
+							<h2>Description of the input fields</h2>
+						</div>
+						<div class="card-body">
+							<h3>Start Date</h3>
+							<p>This field is used to specify a start date of the search. Note that when you choose the 5.10.2020, the newest tweet will be around 4.10.2020 23:59.</p>
+							<h3>End Date</h3>
+							<p>This field is used to specify an end date of the search. Note that if you choose the 5.10.2020, the oldest tweet will be around 6.10.2020 00:00.</p>
+							<h3>Samplesize</h3>
+							<p>Choose this option to limit the query by the number of tweets. If both Enddate and samplesize are chosen, the option which is triggered earlier ends the search.</p>
+							<h3>Seperated Search</h3>
+							<p>Per default, tweets of both queries will be searched simultaneously and combined. The call to the Twitter API will look something like this: query="query1 OR query2". This means that if one hashtag is WAY more popular than the other, you may not get a lot of tweets containing the less popular hashtag. An advantage of this is, that all tweets will be in the same period.<br>
+							If you choose to make a seperated search both queries will be searched seperately. This means that you will roughly get the same amount of tweets for both hashtags, but for the less popular hashtag the period will probably be longer, because there are less tweets to be fetched per day/hour. So both options have different effects on the outcome of the search.</p>
+							<h3>General Information</h3>
+							<p>The tool takes some time to get all the tweets and do all the computing. The speed depends on the system it is run on. On a fast system (cpu) a query should not take longer than ~5 minutes.</p>
+						</div>
+					</div>
+				</div>
+			</div>
 {% endblock %}

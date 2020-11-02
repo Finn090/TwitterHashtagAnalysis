@@ -5,26 +5,28 @@ import pandas as pd
 from pandas import json_normalize
 import re
 from dateutil import parser
+import lxml.etree as etree
+import json
 
-token = "878227804063707136-Ez3Z4a2xSTIoTv1qZqwHJTJMGa6jPQV"
-token_secret = "8wf0mK8wAm8SJ0yFu5Kphkots6N2TZChlo5jPtcimA9qx"
-consumer_key = "x0XwdSNePCkYaqirJWZv3rlOF"
-consumer_secret = "NIH4AO82E0tD28yB1gi6llQ9wwYsJf3mdMzDClwzsthce63FOY"
-api = Twitter(auth = OAuth(token, token_secret, consumer_key, consumer_secret))
+keys = [{"token":"", "token_secret":"",
+		"consumer_key":"", "consumer_secret": ""}]
+
+api_list = []
+for key in keys:
+	api_list.append(Twitter(auth = OAuth(*key.values())))
 
 class twTool():
 	"""
-	This Tool compares the tweets of two different hashtags and the tweets which use both hashtags.
-	It gets tweets via two Twitter API searches, one for each hashtag. 
-	It then takes the data of the two lists of tweets and calculates, hopefully interesting, statistics out of it.
-	The class has two mandatory parameters and an optional one. The first two are the two hashtags,
-	which are needed as querys for the Twitter API search. 
-	The third one is an integer and tells the class how many iterations of each search it should make. 
-	One iteration yields up to 100 tweets.
+	This Tool compares two hashtags with one another. Inputs:
+	query1: string
+	query2: string
+	since: date as string, default False
+	until: date as string, default False
+	howmany: int of how many tweets to query, default 0
+	search_option: wether or not to look for both hashtags seperately. default False
 	"""
 	def __init__(self, query1: str, query2: str, since=False, until=False, howMany: int=0, search_option=False):
 		self.querys = []
-		#make sure querys will be hashtags
 		for x in (query1, query2):
 			if x[0] == "#":
 				self.querys.append(x)
@@ -52,8 +54,179 @@ class twTool():
 		self.results_2 = []
 		self.results_same = []
 
+		self.hashtag_list = []
+
+		self.api_list = []
 		self.error = False
+		self.number_of_tweets = 0
+		self.end_message = ""
 		self._search()
+
+	def _search(self):
+		"""
+		This function carries out the Twitter search via the Twitter API.
+		The logic of the search is determined by the parameters with which the class is called.
+		It calls _sort() when it's finished.
+		"""
+		global api_list
+		#search parameters
+		params_1 = dict(include_entities=True, tweet_mode="extended", result_type="recent", count=100)
+		params_2 = dict(include_entities=True, tweet_mode="extended", result_type="recent", count=100)
+		if self.since:
+			params_1["until"] = self.since
+		if not self.search_option:
+			params_1["q"] = self.querys[0]+" OR "+self.querys[1]
+			params_2["q"] = self.querys[0]+" OR "+self.querys[1]
+		#api key to use
+		api_number = 0
+		api = api_list[api_number]
+		counter = 0
+
+		results_raw = []
+		#check for search_option
+		if self.search_option:				
+			#check for howMany
+			if self.howMany_option:
+				#check for each query
+				for query in self.querys:
+					#for chosen sample size
+					for x in range(self.howMany):
+						try:
+							#first search with since
+							if counter == 0:
+								result = api.search.tweets(q=query, **params_1)
+								#check for 0 results
+								if len(result["statuses"]) == 0:
+									break
+									self.end_message = "Search ended because no more tweets were found."
+								maxId = self._search_extension(result)
+								counter += 1
+							#all following searches
+							else:
+								result = api.search.tweets(q=query, max_id=maxId-1, **params_2)
+								if len(result["statuses"]) == 0:
+									break
+									self.end_message = "Search ended because no more tweets were found."
+								maxId = self._search_extension(result)
+						except TwitterHTTPError:
+							if api_number < len(keys)-1:
+								api_number += 1
+								api = api_list[api_number]
+								continue
+							else:
+								break
+								self.end_message = "Search ended because the Rate Limit was reached."
+			#if not howMany_option
+			else:
+				#iterate until break or rate limit
+				cond = True
+				maxId = []
+				while cond:
+					try:
+						if counter == 0:
+							for query in self.querys:
+								result = api.search.tweets(q=query, **params_1)
+								if len(result["statuses"]) == 0:
+									cond = False
+									self.end_message = "Search ended because no more tweets were found."
+								maxId.append(self._search_extension(result))
+							counter += 1
+						#check if until was chosen
+						elif self.until:
+							for i, query in enumerate(self.querys):
+								result = api.search.tweets(q=query, max_id=maxId[i]-1, **params_2)
+								if len(result["statuses"]) == 0:
+									cond = False
+									self.end_message = "Search ended because no more tweets were found."
+								maxId[i] = self._search_extension(result)
+								if maxId[i] == False:
+									cond = False
+									self.end_message = "Search ended because Enddate was reached"
+						#if until was not chosen
+						else:
+							for i, query in enumerate(self.querys):
+								result = api.search.tweets(q=query, max_id=maxId[i]-1, **params_2)
+								if len(result["statuses"]) == 0:
+									cond = False
+									self.end_message = "Search ended because no more tweets were found."
+								maxId[i] = self._search_extension(result)
+					except TwitterHTTPError:
+						if api_number < len(keys)-1:
+							api_number += 1
+							api = api_list[api_number]
+							continue
+						else:
+							break
+							self.end_message = "Search ended because the Rate Limit was reached."
+		#if not search_option
+		else:
+			if self.howMany_option:
+				for x in range(self.howMany):
+					try:
+						if counter == 0:
+							result = api.search.tweets(**params_1)
+							if len(result["statuses"]) == 0:
+								break
+								self.end_message = "Search ended because no more tweets were found."
+							maxId = self._search_extension(result)
+							counter += 1
+						else:
+							result = api.search.tweets(max_id=maxId-1, **params_2)
+							if len(result["statuses"]) == 0:
+								break
+								self.end_message = "Search ended because no more tweets were found."
+							maxId = self._search_extension(result)
+					except TwitterHTTPError:
+						if api_number < len(keys)-1:
+							api_number += 1
+							api = api_list[api_number]
+							continue
+						else:
+							break
+							self.end_message = "Search ended because the Rate Limit was reached."
+			#if not howMany_option
+			else:
+				while True:
+					try:
+						if counter == 0:
+							result = api.search.tweets(**params_1)
+							if len(result["statuses"]) == 0:
+								break
+								self.end_message = "Search ended because no more tweets were found."
+							maxId = self._search_extension(result)
+							counter += 1
+						#check if until was chosen
+						elif self.until:
+							result = api.search.tweets(max_id=maxId-1, **params_2)
+							if len(result["statuses"]) == 0:
+								break
+								self.end_message = "Search ended because no more tweets were found."
+							maxId = self._search_extension(result)
+							if maxId == False:
+								break
+								self.end_message = "Search ended because Enddate was reached"
+						#if until was not chosen
+						else:
+							result = api.search.tweets(max_id=maxId-1, **params_2)
+							if len(result["statuses"]) == 0:
+								break
+								self.end_message = "Search ended because no more tweets were found."
+							maxId = self._search_extension(result)
+					except TwitterHTTPError:
+						if api_number < len(keys)-1:
+							api_number += 1
+							api = api_list[api_number]
+							continue
+						else:
+							break
+							self.end_message = "Search ended because the Rate Limit was reached."
+
+		if not self.end_message:
+			self.end_message = "Search ended because the samplesize was reached or date limit of the Twitter API was reached."
+		if len(self.results_raw) > 0:
+			self._sort()
+		else:
+			self.error = True
 
 	def _search_extension(self, result):
 		"""
@@ -72,135 +245,6 @@ class twTool():
 		maxId = result["statuses"][-1]["id"]
 		return maxId
 
-	def _search(self):
-		"""
-		This function carries out the Twitter search via the Twitter API.
-		The logic of the search is determined by the parameters with which the class is called.
-		It calls _sort() when it's finished.
-		"""
-		#search parameters
-		params_1 = dict(include_entities=True, tweet_mode="extended", result_type="recent", count=100)
-		params_2 = dict(include_entities=True, tweet_mode="extended", result_type="recent", count=100)
-		if self.since:
-			params_1["until"] = self.since
-		if not self.search_option:
-			params_1["q"] = self.querys[0]+" OR "+self.querys[1]
-			params_2["q"] = self.querys[0]+" OR "+self.querys[1]
-
-		results_raw = []
-		try:
-			#check for search_option
-			if self.search_option:				
-				#check for howMany
-				if self.howMany_option:
-					#check for each query
-					for query in self.querys:
-						#for chosen sample size
-						for x in range(0, self.howMany):
-							#first search with since
-							if x == 0:
-								result = api.search.tweets(q=query, **params_1)
-								#check for 0 results
-								if len(result["statuses"]) == 0:
-									break
-									print("0 results")
-								maxId = self._search_extension(result)
-							#all following searches
-							else:
-								result = api.search.tweets(q=query, max_id=maxId-1, **params_2)
-								if len(result["statuses"]) == 0:
-									break
-									print("0 results")
-								maxId = self._search_extension(result)
-				#if not howMany_option
-				else:
-					#iterate until break or rate limit
-					counter = 0
-					cond = True
-					maxId = []
-					while cond:
-						if counter == 0:
-							for query in self.querys:
-								result = api.search.tweets(q=query, **params_1)
-								if len(result["statuses"]) == 0:
-									cond = False
-									print("0 results")
-								maxId.append(self._search_extension(result))
-								counter += 1
-						#check if until was chosen
-						elif self.until:
-							for i, query in enumerate(self.querys):
-								result = api.search.tweets(q=query, max_id=maxId[i], **params_2)
-								if len(result["statuses"]) == 0:
-									cond = False
-									print("0 results")
-								maxId[i] = self._search_extension(result)
-								if maxId[i] == False:
-									cond = False
-									print("date ended")
-						#if until was not chosen
-						else:
-							for i, query in enumerate(self.querys):
-								result = api.search.tweets(q=query, max_id=maxId[i], **params_2)
-								if len(result["statuses"]) == 0:
-									cond = False
-									print("0 results")
-								maxId[i] = self._search_extension(result)
-			#if not search_option
-			else:
-				if self.howMany_option:
-					for x in range(0, self.howMany):
-						if x == 0:
-							result = api.search.tweets(**params_1)
-							if len(result["statuses"]) == 0:
-								break
-								print("0 results")
-							maxId = self._search_extension(result)
-						else:
-							result = api.search.tweets(max_id=maxId-1, **params_2)
-							if len(result["statuses"]) == 0:
-								break
-								print("0 results")
-							maxId = self._search_extension(result)
-				#if not howMany_option
-				else:
-					counter = 0
-					while True:
-						if counter == 0:
-							result = api.search.tweets(**params_1)
-							if len(result["statuses"]) == 0:
-								break
-								print("0 results")
-							maxId = self._search_extension(result)
-							counter += 1
-						#check if until was chosen
-						elif self.until:
-							result = api.search.tweets(max_id=maxId-1, **params_2)
-							if len(result["statuses"]) == 0:
-								break
-								print("0 results")
-							maxId = self._search_extension(result)
-							if maxId == False:
-								break
-								print("date ended")
-						#if until was not chosen
-						else:
-							result = api.search.tweets(max_id=maxId-1, **params_2)
-							if len(result["statuses"]) == 0:
-								break
-								print("0 results")
-							maxId = self._search_extension(result)
-
-		#if error gets raised
-		except TwitterHTTPError:
-			print("Rate limit reached")
-		#output
-		finally:
-			if len(self.results_raw) > 0:
-				self._sort()
-			else:
-				self.error = True
-
 	def _sort(self):
 		"""
 		This function takes the raw list and sorts the tweets into three seperate lists, depending on the used hashtags.
@@ -212,12 +256,13 @@ class twTool():
 			if tweet["id"] not in ids:
 				ids.append(tweet["id"])
 				unique_1 = True
-				unique_2 = True
 				unique_same = True
+				unique_2 = True
 				#check if hashtags were used
 				if tweet.get("retweeted_status"):
 					if tweet["retweeted_status"]["entities"]["hashtags"]:
 						for hashtag in tweet["retweeted_status"]["entities"]["hashtags"]:
+							self.hashtag_list.append(hashtag["text"])
 							if hashtag["text"].casefold() == self.querys[0][1:].casefold():
 								if unique_1:
 									self.results_1.append(tweet)
@@ -235,6 +280,7 @@ class twTool():
 
 				elif tweet["entities"]["hashtags"]:
 					for hashtag in tweet["entities"]["hashtags"]:
+						self.hashtag_list.append(hashtag["text"])
 						if hashtag["text"].casefold() == self.querys[0][1:].casefold():
 							if unique_1:
 								self.results_1.append(tweet)
@@ -249,7 +295,7 @@ class twTool():
 							if unique_same:
 								self.results_same.append(tweet)
 								unique_same = False
-		print(len(ids))				
+		self.number_of_tweets = str(len(ids))		
 
 	def overview(self):
 		"""
@@ -263,7 +309,7 @@ class twTool():
 		retweets = [[0,0],[0,0],[0,0]]
 		hashtags = [[],[],[]]
 		text_lenghts = [[],[],[]]
-		text_overview = [[0,0,0],[0,0,0],[0,0,0]]
+		word_count = [[0,0,0],[0,0,0],[0,0,0]]
 		pictures = [[0,0],[0,0],[0,0]]
 		user_count_with = [[],[],[]]
 		user_count_without = [[],[],[]]
@@ -337,24 +383,44 @@ class twTool():
 		#Calculate min, max and mean of word counts
 		for i, x in enumerate(text_lenghts):
 			if len(x) > 1:
-				text_overview[i][0] = min(x)
-				text_overview[i][1] = max(x)
-				text_overview[i][2] = sum(x)/len(x)
+				word_count[i][0] = min(x)
+				word_count[i][1] = max(x)
+				word_count[i][2] = sum(x)/len(x)
 
-		#Create a dataframe
-		df = pd.DataFrame(columns=[self.querys[0], "tweets with both hashtags", self.querys[1]])
-		for i,col in enumerate(df):
-			df.loc["number of tweets", col] = length[i]
-			df.loc["tweets with links", col] = str(links[i][0]) + ", " + str(round(links[i][1], 2)) + "%" + " of tweets"
-			df.loc["tweets as replies", col] = str(replies[i][0]) + ", " + str(round(replies[i][1], 2)) + "%" + " of tweets"
-			df.loc["tweets as retweets", col] = str(retweets[i][0]) + ", " + str(round(retweets[i][1], 2)) + "%" + " of tweets"
-			df.loc["word count: min, max and mean", col] = str(text_overview[i][0]) + ", " + str(text_overview[i][1]) + ", " + str(round(text_overview[i][2], 2))
-			df.loc["tweets with photos", col] = str(pictures[i][0]) + ", " + str(round(pictures[i][1], 2)) + "%" + " of tweets"
-			df.loc["distinct users", col] = str(users_RT[i]) + ", " + str(users_without_RT[i])
+		#create a dict
+		dic = {
+			"query1": {
+				"tweets": length[0],
+				"distinct_users": [users_RT[0], users_without_RT[0]],
+				"retweets": [retweets[0][0], round(retweets[0][1], 1)],
+				"replies": [replies[0][0], round(replies[0][1], 1)],
+				"links": [links[0][0], round(links[0][1], 1)],
+				"photos": [pictures[0][0], round(pictures[0][1], 1)],
+				"word_count": [word_count[0][0], word_count[0][1], round(word_count[0][2], 1)]
+			},
+			"both": {
+				"tweets": length[1],
+				"distinct_users": [users_RT[1], users_without_RT[1]],
+				"retweets": [retweets[1][0], round(retweets[1][1], 1)],
+				"replies": [replies[1][0], round(replies[1][1], 1)],
+				"links": [links[1][0], round(links[1][1], 1)],
+				"photos": [pictures[1][0], round(pictures[1][1], 1)],
+				"word_count": [word_count[1][0], word_count[1][1], round(word_count[1][2], 1)]
+			},
+			"query2": {
+				"tweets": length[2],
+				"distinct_users": [users_RT[2], users_without_RT[2]],
+				"retweets": [retweets[2][0], round(retweets[2][1], 1)],
+				"replies": [replies[2][0], round(replies[2][1], 1)],
+				"links": [links[2][0], round(links[2][1], 1)],
+				"photos": [pictures[2][0], round(pictures[2][1], 1)],
+				"word_count": [word_count[2][0], word_count[2][1], round(word_count[2][2], 1)]
+			}
+		}
 
-		return df
+		return dic
 
-	def graph(self):
+	def graph(self, filename):
 		"""
 		This function returns a dictionary with information about the tweets, which will be rendered into graphs.
 		Returns: dictionary
@@ -431,27 +497,30 @@ class twTool():
 		first_dates = []
 		last_dates = []
 		for sublist in timeline_sorted:
-			first_dates.append(sublist[0][0])
-			last_dates.append(sublist[-1][0])
-			for e, item in enumerate(sublist):
-				#check if last item in list
-				if item == sublist[-1]:
-					break
-				first_date = datetime.strptime(item[0], "%Y-%m-%d %H")
-				next_date = datetime.strptime(sublist[e+1][0], "%Y-%m-%d %H")
-				#check for gap
-				if first_date + timedelta(hours=1) != next_date:
-					new_date = (first_date + timedelta(hours=1)).strftime("%Y-%m-%d %H")
-					sublist.insert(e+1, (new_date, 0))		
+			if len(sublist) > 0:
+				first_dates.append(sublist[0][0])
+				last_dates.append(sublist[-1][0])
+				for e, item in enumerate(sublist):
+					#check if last item in list
+					if item == sublist[-1]:
+						break
+					first_date = datetime.strptime(item[0], "%Y-%m-%d %H")
+					next_date = datetime.strptime(sublist[e+1][0], "%Y-%m-%d %H")
+					#check for gap
+					if first_date + timedelta(hours=1) != next_date:
+						new_date = (first_date + timedelta(hours=1)).strftime("%Y-%m-%d %H")
+						sublist.insert(e+1, (new_date, 0))		
 		#check for first and last date
 		for sublist in timeline_sorted:
-			while sublist[0][0] != min(first_dates):
-				check_date = datetime.strptime(sublist[0][0], "%Y-%m-%d %H")
-				sublist.insert(0, ((check_date - timedelta(hours=1)).strftime("%Y-%m-%d %H"),0))
+			if len(sublist) > 0:
+				while sublist[0][0] != min(first_dates):
+					check_date = datetime.strptime(sublist[0][0], "%Y-%m-%d %H")
+					sublist.insert(0, ((check_date - timedelta(hours=1)).strftime("%Y-%m-%d %H"),0))
 		for sublist in timeline_sorted:
-			while sublist[-1][0] != max(last_dates):
-				check_date = datetime.strptime(sublist[-1][0], "%Y-%m-%d %H")
-				sublist.append(((check_date + timedelta(hours=1)).strftime("%Y-%m-%d %H"),0))
+			if len(sublist) > 0:
+				while sublist[-1][0] != max(last_dates):
+					check_date = datetime.strptime(sublist[-1][0], "%Y-%m-%d %H")
+					sublist.append(((check_date + timedelta(hours=1)).strftime("%Y-%m-%d %H"),0))
 
 		#Create a dictionary
 		dic = {
@@ -491,17 +560,17 @@ class twTool():
 			},
 			"co_hashtags": {
 				"query1": {
-					"labels": [x[0] for x in co_hashtags_sorted[0]],
+					"labels": ["#"+x[0] for x in co_hashtags_sorted[0]],
 					"values": [x[1] for x in co_hashtags_sorted[0]],
 					"percentages": [x[2] for x in co_hashtags_sorted[0]]
 				},
 				"same": {
-					"labels": [x[0] for x in co_hashtags_sorted[1]],
+					"labels": ["#"+x[0] for x in co_hashtags_sorted[1]],
 					"values": [x[1] for x in co_hashtags_sorted[1]],
 					"percentages": [x[2] for x in co_hashtags_sorted[1]]
 				},
 				"query2": {
-					"labels": [x[0] for x in co_hashtags_sorted[2]],
+					"labels": ["#"+x[0] for x in co_hashtags_sorted[2]],
 					"values": [x[1] for x in co_hashtags_sorted[2]],
 					"percentages": [x[2] for x in co_hashtags_sorted[2]]
 				}
@@ -516,13 +585,17 @@ class twTool():
 				"query2": {
 					"data": timeline_sorted[2]
 				}
-			}	
+			}
 		}
+
+		with open("static/json/"+filename, "w") as file:
+			json.dump(dic, file)
 		return dic
 
 	def tweets_to_df(self):
 		"""
-		
+		This function returns a table of all tweets.
+		Returns: pandas.dataframe
 		"""
 		df1 = json_normalize(self.results_1)
 		df1["hashtag"] = self.querys[0]
@@ -531,9 +604,76 @@ class twTool():
 		df2 = json_normalize(self.results_2)
 		df2["hashtag"] = self.querys[1]
 
-		df_all = df1.append((df_same, df2))
+		df_all = df1.append((df_same, df2), ignore_index=True)
 		return df_all
 
+	def create_gexf_data(self, filename):
+		"""
+		This function manages the data to be ready for _create_gexf.
+		Parameter: filename: string
+		"""
+		hashtags = list(set(self.hashtag_list))
+		gexf_list = []
+
+		for hashtag in hashtags:
+			gexf_list.append({"id":hashtags.index(hashtag), "name": "#" + hashtag, "value": self.hashtag_list.count(hashtag), "edges": []})
+
+		ids = []
+		for tweet in self.results_raw:
+			if tweet["id"] not in ids:
+				ids.append(tweet["id"])
+				if tweet.get("retweeted_status"):
+					if tweet["retweeted_status"]["entities"]["hashtags"]:
+						used_hashtags = [x["text"] for x in tweet["retweeted_status"]["entities"]["hashtags"]]
+						for hashtag in used_hashtags:
+							index = hashtags.index(hashtag)
+							for element in used_hashtags:
+								if element != hashtag:
+									gexf_list[index]["edges"].append(element)
+				else:
+					if tweet["entities"]["hashtags"]:
+						used_hashtags = [x["text"] for x in tweet["entities"]["hashtags"]]
+						for hashtag in used_hashtags:
+							index = hashtags.index(hashtag)
+							for element in used_hashtags:
+								if element != hashtag:
+									gexf_list[index]["edges"].append(element)
+
+		for item in gexf_list:
+			new_edges = []
+			for element in set(item["edges"]):
+				new_edges.append((hashtags.index(element), element, item["edges"].count(element)))
+			item["edges"] = new_edges
+
+		_create_gexf(gexf_list, filename)
+
+def _create_gexf(data, filename):
+	"""
+	This function creates a gexf.file from the data it receives.
+	"""
+	gexf = etree.Element("gexf", version= "1.3")
+	graph = etree.SubElement(gexf, "graph", defaultedgetype= "undirected", mode= "static")
+	attributes = etree.SubElement(graph, "attributes", {"class": "node", "mode": "static"})
+
+	etree.SubElement(attributes, "attribute", {"id": "frequency", "title": "frequency", "type": "integer"})
+	etree.SubElement(attributes, "attribute", {"id": "number_of_edges", "title": "number_of_edges", "type": "integer"})
+
+	nodes = etree.SubElement(graph, "nodes")
+	edges = etree.SubElement(graph, "edges")
+
+	for item in data:
+		node = etree.SubElement(nodes, "node", id= str(item["id"]), Label= item["name"])
+		attvalues = etree.SubElement(node, "attvalues")
+
+		etree.SubElement(attvalues, "attvalue", {"for": "frequency", "value": str(item["value"])})
+		etree.SubElement(attvalues, "attvalue", {"for": "number_of_edges", "value": str(len(item["edges"]))})
+
+		for connection in item["edges"]:
+			etree.SubElement(edges, "edge", {"id": str(item["id"])+"_"+str(connection[0]), "source": str(item["id"]), "target": str(connection[0]), 
+							"weight": str(connection[2]/2)})
+
+	with open("static/downloads/"+filename, "w", encoding="utf-8") as file:
+		file.write(etree.tostring(gexf, encoding="utf-8", method="xml").decode("utf-8"))
 
 def api_status():
 	"""
@@ -542,9 +682,10 @@ def api_status():
 	first: integer: remaining searches 
 	second: string: reset time
 	"""
-	status = []
-	rate_limit_status = api.application.rate_limit_status()
-	status.append(rate_limit_status['resources']['search']['/search/tweets']["remaining"])
-	reset = rate_limit_status["resources"]["search"]["/search/tweets"]["reset"]
-	status.append(time.strftime("%H:%M:%S", time.localtime(reset)))
+	rate_limit_status = []
+	status = []	
+	for i, api in enumerate(api_list):
+		rate_limit_status.append(api.application.rate_limit_status())
+		reset = rate_limit_status[i]["resources"]["search"]["/search/tweets"]["reset"]
+		status.append(((rate_limit_status[i]['resources']['search']['/search/tweets']["remaining"]), time.strftime("%H:%M:%S", time.localtime(reset))))
 	return status

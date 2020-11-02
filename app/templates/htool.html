@@ -1,488 +1,779 @@
 {% extends "layout.html" %}
 {% block content %}
-<div class="htool">
-	<div class="search_parameters">
-		<h3>Search parameters</h3>
-		<p>Startdate: {{search_parameters[2]}}</p>
-		<p>Enddate: {{search_parameters[3]}}</p>
-		<p>Chosen Sample size: {{search_parameters[4]}}</p>
-		<p>Querys: <b>{{search_parameters[0]}}</b> and <b>{{search_parameters[1]}}</b></p>
-		<p>Seperated Search: {{search_parameters[5]}}</p>
-		<p>Total tweets collected: {{search_parameters[6]}}</p>
-	</div>
-	<canvas id="timeline" width="1000" height="400"></canvas>
-	<canvas id="lang_1" width="420" height="250"></canvas>
-	<canvas id="lang_same" width="420" height="250"></canvas>
-	<canvas id="lang_2" width="420" height="250"></canvas>
-	<canvas id="inter_1" width="420" height="250"></canvas>
-	<canvas id="inter_same" width="420" height="250"></canvas>
-	<canvas id="inter_2" width="420" height="250"></canvas>
-	<canvas id="co_1" width="420" height="250"></canvas>
-	<canvas id="co_same" width="420" height="250"></canvas>
-	<canvas id="co_2" width="420" height="250"></canvas>
-	<script>
-		//timeline chart
-		Chart.defaults.global.responsive = false;
-		var data_timeline = {
-			datasets: [{
-				data: [{% for item in dic["timeline"]["query1"]["data"] %}
-				{x:moment("{{item[0]}}"), y:{{item[1]}}},
-				{% endfor %}],
-				label: "{{timeline_legends[0]}}",
-				borderColor: "#3e95cd",
-				pointRadius: 1.2,
-				fill: false,
-				lineTension: 0.1,
-				borderWidth: 2.5
-			}, {
-				data: [{% for item in dic["timeline"]["same"]["data"] %}
-				{x:moment("{{item[0]}}"), y:{{item[1]}}},
-				{% endfor %}],
-				label: "{{timeline_legends[1]}}",
-				borderColor: "rgba(192,15,34,0.7)",
-				pointRadius: 1.2,
-				fill: false,
-				lineTension: 0.1,
-				borderWidth: 2.5
-			}, {
-				data: [{% for item in dic["timeline"]["query2"]["data"] %}
-				{x:moment("{{item[0]}}"), y:{{item[1]}}},
-				{% endfor %}],
-				label: "{{timeline_legends[2]}}",
-				borderColor: "rgba(192,64,173,0.7)",
-				pointRadius: 1.2,
-				fill: false,
-				lineTension: 0.1,
-				borderWidth: 2.5
-			}]
-		}
-		var timeline_chart = new Chart(document.getElementById("timeline"), {
-			type: "line",
-			data: data_timeline,
-			options: {
-				title: {
-					display: true,
-					text: "Timeline (UTC timezone)"
-				},
-			    scales: {
-			    	xAxes: [{
-			    		type: "time",
-			    		distribution: 'linear',
-			    		time: {
-			    			unit: "hour",
-			    			displayFormats: {
-			    				hour: "D MMM, HH:00"
-			    			}
-			    		},
-			    		ticks: {
-			    			major: {
-			    				enabled: true,
-			    				fontStyle: 'bold'
-			    			}
-			    		}
-			    	}],
-			    	yAxes: [{
-			    		ticks: {
-			    			beginAtZero: true
-			    		}
-			    	}]
-			    }
-			}
-		});
-	</script>
-	<script>
-		//globall setting
-		Chart.defaults.global.responsive = false;
-		//graph colors
-		var backgroundColor = [
-					"rgba(192,15,34,0.7)",
-					"rgba(34,72,193,0.7)",
-					"rgba(192,64,173,0.7)",
-					"rgba(23,84,25,0.7)",
-					"rgba(87,23,192,0.7"]
-		//Graphs
-		//Language Graphs
-		//first
-		var data_lang_1 = {
-			labels: [{% for item in dic["languages"]["query1"]["labels"][:5] %}
-				"{{item}}",
-				{% endfor %}],
-			datasets: [{
-				label: "{{lang_legends[0]}}",
-				backgroundColor: [
-					"#71b949b4"
-					],
-				data: [{% for item in dic["languages"]["query1"]["values"][:5] %}
-					{{item}},
-					{% endfor %}]
-			}]
-		}
-		var lang_1_chart = new Chart(document.getElementById("lang_1"), {
-			type: "horizontalBar",
-			data: data_lang_1,
-			options: {
-				legend: {
-					labels: {
-						boxWidth: 0
-					}
-				},
-				scales: {
-					xAxes: [{
-						ticks: {
-							beginAtZero: true
-						}
+			<div class="row">
+				<div class="col-sm-3">
+					<div class="card bg-info" id="reference_1">
+						<div class="card-header">
+							<h2>Search</h2>	
+						</div>
+						<div class="card-body">
+							<p>Startdate: {{search_parameters[2]}}</p>
+							<p>Enddate: {{search_parameters[3]}}</p>
+							<p>Chosen Sample size: {{search_parameters[4]}}</p>
+							<p>Querys: <b>{{search_parameters[0]}}</b> and <b>{{search_parameters[1]}}</b></p>
+							<p>Seperated Search: {{search_parameters[5]}}</p>
+							<p class="search_parameters_seperator">Total tweets collected: {{search_parameters[6]}}</p>
+							<p>{{search_parameters[7]}}</p>
+						</div>
+					</div>
+					<div class="card bg-info" id="reference_2">
+						<div class="card-header">
+							<h2>Downloads</h2>
+						</div>
+						<div class="card-body">
+							<p><a href="{{ csv_download_link }}">Download all tweets</a></p>
+							<p class="search_parameters_seperator"><a href="{{ gexf_download_link }}">Download a network file of all hashtags</a>
+								<span class="Tooltip" data-toggle="tooltip" data-placement="top"
+								title="This is a .gexf-file. To open this you need a program like gephi or similar. The content is a network graph of ALL hashtags, regardless which query it belongs to. The different hashtags are the nodes and the edges show how often two hashtags are used in the same tweet. If two hashtags are used in the same tweet, an edge between the two hashtags is created. Each time after that, the strength of the edge gets increased by 1. You may be prompted with the message 'Parallel edges detected.'. Regardless the merge strategy 'SUM' is correct."
+								><sup>i</sup></span></p>
+							<p><a target="_blank" rel="noopener noreferrer" href="{{ url_for('complete_lists') }}">View full data of the graphs (no download)</a></p>
+						</div>
+					</div>
+				</div>
+				<div class="col-sm-9">
+					<div class="card bg-info">
+						<div class="card-body" id="target">
+							<canvas id="timeline"></canvas>
+						</div>
+					</div>
+				</div>
+			</div>
+			<div class="row">
+				<div class="col-sm-12">
+					<div class="card bg-info" id="table">
+						<div class="card-header">
+							<h2>Tweets which contain both Hashtags</h2>
+						</div>
+						<div class="card-body" id="both">
+							<div id="table_both_container">
+								<table id="table_both">
+									<tr>
+										<th>Overview table</th>
+									</tr>
+									<tr>
+										<td>
+											Tweets
+											<span class="Tooltip" data-toggle="tooltip" data-placement="top"
+											title="Shows all tweets with the matching hashtags. All percentage numbers are in relation to this number."
+											><sup>i</sup></span>
+										</td>
+										<td class="table_right">{{tables["both"]["tweets"]}}</td>
+									</tr>
+									<tr>
+										<td>
+											Distinct users
+											<span class="Tooltip" data-toggle="tooltip" data-placement="top"
+											title="Shows the distinct users of all tweets. The second number does not count users who only retweeted and therefore did not write their own tweet or reply."
+											><sup>i</sup></span>
+										</td>
+										<td class="table_right">{{tables["both"]["distinct_users"][0]}}, {{tables["both"]["distinct_users"][1]}}</td>
+									</tr>
+									<tr>
+										<td>
+											Retweets
+											<span class="Tooltip" data-toggle="tooltip" data-placement="top"
+											title="Number of retweets. First number is the total number and the second one is the percentage in regard to all tweets."
+											><sup>i</sup></span>
+										</td>
+										<td class="table_right">{{tables["both"]["retweets"][0]}}, {{tables["both"]["retweets"][1]}}%</td>
+									</tr>
+									<tr>
+										<td>
+											Replies
+											<span class="Tooltip" data-toggle="tooltip" data-placement="top"
+											title="Number of replies. First number is the total number and the second one is the percentage in regard to all tweets."
+											><sup>i</sup></span>
+										</td>
+										<td class="table_right">{{tables["both"]["replies"][0]}}, {{tables["both"]["replies"][1]}}%</td>
+									</tr>
+									<tr>
+										<td>
+											Links
+											<span class="Tooltip" data-toggle="tooltip" data-placement="top"
+											title="Shows the number of tweets which contain at least one link. The second number is the percentage in regard to all tweets."
+											><sup>i</sup></span>
+										</td>
+										<td class="table_right">{{tables["both"]["links"][0]}}, {{tables["both"]["links"][1]}}%</td>
+									</tr>
+									<tr>
+										<td>
+											Photos
+											<span class="Tooltip" data-toggle="tooltip" data-placement="top"
+											title="Shows the number of tweets which contain at least one photo. The second number is the percentage in regard to all tweets."
+											><sup>i</sup></span>
+										</td>
+										<td class="table_right">{{tables["both"]["photos"][0]}}, {{tables["both"]["photos"][1]}}%</td>
+									</tr>
+									<tr class="last_row">
+										<td>
+											Word count
+											<span class="Tooltip" data-toggle="tooltip" data-placement="top"
+											title="Shows the number of words in a tweet. The first number is the tweet with the least amount of words. The second number shows the amount of words in the tweet with the most  words. The last number shows the average amount of words in all tweets."
+											><sup>i</sup></span>
+										</td>
+										<td class="table_right">{{tables["both"]["word_count"][0]}}, {{tables["both"]["word_count"][1]}}, {{tables["both"]["word_count"][2]}}</td>
+									</tr>
+								</table>
+							</div>
+							<div class="graphs_horizontal">
+								<canvas id="lang_same"></canvas>
+							</div>
+							<div class="graphs_horizontal">
+								<canvas id="inter_same"></canvas>
+							</div>
+							<div class="graphs_horizontal">
+								<canvas id="co_same"></canvas>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+			<div class="row">
+				<div class="col-md-5">
+					<div class="card bg-info">
+						<div class="card-header">
+							<h2>{{search_parameters[0]}}</h2>
+						</div>
+						<div class="card-body" id="query1">
+							<div class="graphs_vertical graph_border">
+								<canvas id="co_1"></canvas>
+							</div>
+							<div class="graphs_vertical graph_border">	
+								<canvas id="inter_1"></canvas>
+							</div>
+							<div class="graphs_vertical">
+								<canvas id="lang_1"></canvas>
+							</div>
+						</div>
+					</div>
+				</div>
+				<div class="col-md-2">
+					<div class="card bg-info">
+						<div class="card-header">
+							<h2 class="table_middle">Overview table</h2>
+						</div>
+						<div class="card-body">
+							<table id="overview">
+								<tr>
+									<th class="table_left">{{search_parameters[0]}}</th>
+									<th></th>
+									<th class="table_right">{{search_parameters[1]}}</th>
+								</tr>
+								<tr>
+									<td class="table_left">{{tables["query1"]["tweets"]}}</td>
+									<td class="table_middle">
+										Tweets
+										<span class="Tooltip" data-toggle="tooltip" data-placement="top"
+										title="Shows all tweets with the matching hashtag. All percentage numbers are in relation to this number."
+										><sup>i</sup></span>
+									</td>
+									<td class="table_right">{{tables["query2"]["tweets"]}}</td>
+								</tr>
+								<tr>
+									<td class="table_left">{{tables["query1"]["distinct_users"][0]}}, {{tables["query1"]["distinct_users"][1]}}</td>
+									<td class="table_middle">
+										Distinct users
+										<span class="Tooltip" data-toggle="tooltip" data-placement="top"
+										title="Shows the distinct users of all tweets. The second number does not count users who only retweeted and therefore did not write their own tweet or reply."
+										><sup>i</sup></span>
+									</td>
+									<td class="table_right">{{tables["query2"]["distinct_users"][0]}}, {{tables["query2"]["distinct_users"][1]}}</td>
+								</tr>
+								<tr>
+									<td class="table_left">{{tables["query1"]["retweets"][0]}}, {{tables["query1"]["retweets"][1]}}%</td>
+									<td class="table_middle">
+										Retweets
+										<span class="Tooltip" data-toggle="tooltip" data-placement="top"
+										title="Number of retweets. First number is the total number and the second one is the percentage in regard to all tweets."
+										><sup>i</sup></span>
+									</td>
+									<td class="table_right">{{tables["query2"]["retweets"][0]}}, {{tables["query2"]["retweets"][1]}}%</td>
+								</tr>
+								<tr>
+									<td class="table_left">{{tables["query1"]["replies"][0]}}, {{tables["query1"]["replies"][1]}}%</td>
+									<td class="table_middle">
+										Replies
+										<span class="Tooltip" data-toggle="tooltip" data-placement="top"
+										title="Number of replies. First number is the total number and the second one is the percentage in regard to all tweets."
+										><sup>i</sup></span>
+									</td>
+									<td class="table_right">{{tables["query2"]["replies"][0]}}, {{tables["query2"]["replies"][1]}}%</td>
+								</tr>
+								<tr>
+									<td class="table_left">{{tables["query1"]["links"][0]}}, {{tables["query1"]["links"][1]}}%</td>
+									<td class="table_middle">
+										Links
+										<apn class="Tooltip" data-toggle="tooltip" data-placement="top"
+										title="Shows the number of tweets which contain at least one link. The second number is the percentage in regard to all tweets."
+										><sup>i</sup></span>
+									</td>
+									<td class="table_right">{{tables["query2"]["links"][0]}}, {{tables["query2"]["links"][1]}}%</td>
+								</tr>
+								<tr>
+									<td class="table_left">{{tables["query1"]["photos"][0]}}, {{tables["query1"]["photos"][1]}}%</td>
+									<td class="table_middle">
+										Photos
+										<span class="Tooltip" data-toggle="tooltip" data-placement="top"
+										title="Shows the number of tweets which contain at least one photo. The second number is the percentage in regard to all tweets."
+										><sup>i</sup></span>
+									</td>
+									<td class="table_right">{{tables["query2"]["photos"][0]}}, {{tables["query2"]["photos"][1]}}%</td>
+								</tr>
+								<tr class="last_row">
+									<td class="table_left">{{tables["query1"]["word_count"][0]}}, {{tables["query1"]["word_count"][1]}}, {{tables["query1"]["word_count"][2]}}</td>
+									<td class="table_middle">
+										Word count
+										<span class="Tooltip" data-toggle="tooltip" data-placement="top"
+										title="Shows the number of words in a tweet. The first number is the tweet with the least amount of words. The second number shows the amount of words in the tweet with the most  words. The last number shows the average amount of words in all tweets."
+										><sup>i</sup></span>
+									</td>
+									<td class="table_right">{{tables["query2"]["word_count"][0]}}, {{tables["query2"]["word_count"][1]}}, {{tables["query2"]["word_count"][2]}}</td>
+								</tr>
+							</table>
+						</div>
+					</div>
+				</div>
+				<div class="col-md-5">
+					<div class="card bg-info">
+						<div class="card-header">
+							<h2>{{search_parameters[1]}}</h2>
+						</div>
+						<div class="card-body" id="query2">
+							<div class="graphs_vertical graph_border">
+								<canvas id="co_2"></canvas>
+							</div>
+							<div class="graphs_vertical graph_border">
+								<canvas id="inter_2"></canvas>
+							</div>
+							<div class="graphs_vertical" >
+								<canvas id="lang_2"></canvas>	
+							</div>		
+						</div>
+					</div>
+				</div>
+			</div>
+			<script>
+				changeHeight();
+				resizeCard();
+				document.getElementById("body").addEventListener("resize", resizeCard);
+				//global graph settings
+				Chart.defaults.global.maintainAspectRatio = false;
+				//graph colors
+				var backgroundColor_1 = ["#00165c", "#005375", "#2f7893", "#5ea1c0", "#85b6c5", "#00b3bd", "#00717e", "#00698d", "#009ee3", "#78ccf4"];
+				var backgroundColor_2 = ["#375c14", "#4b741b", "#3fa435", "#75b353", "#6e9e62", "#bed7c1", "#48826f", "#87c9ba", "#50b9a5", "#00a999"];
+				var backgroundColor_3 = ["#7e0f00", "#aa0f09", "#b25900", "#f08500", "#d59200", "#fdc952", "#ffdb85", "#f6a96a", "#d05d5c", "#b82645"];
+				//timeline chart
+				var data_timeline = {
+					datasets: [{
+						data: [{% for item in dic["timeline"]["query1"]["data"] %}
+						{x:moment("{{item[0]}}"), y:{{item[1]}}},
+						{% endfor %}],
+						label: "{{timeline_legends[0]}}",
+						borderColor: "#f08500",
+						pointRadius: 1.2,
+						fill: false,
+						lineTension: 0.1,
+						borderWidth: 2.5
+					}, {
+						data: [{% for item in dic["timeline"]["same"]["data"] %}
+						{x:moment("{{item[0]}}"), y:{{item[1]}}},
+						{% endfor %}],
+						label: "{{timeline_legends[1]}}",
+						borderColor: "#75b353",
+						pointRadius: 1.2,
+						fill: false,
+						lineTension: 0.1,
+						borderWidth: 2.5
+					}, {
+						data: [{% for item in dic["timeline"]["query2"]["data"] %}
+						{x:moment("{{item[0]}}"), y:{{item[1]}}},
+						{% endfor %}],
+						label: "{{timeline_legends[2]}}",
+						borderColor: "#009ee3",
+						pointRadius: 1.2,
+						fill: false,
+						lineTension: 0.1,
+						borderWidth: 2.5
 					}]
-				},
-				tooltips: {
-					callbacks: {
-						label: function(tooltipItem, data) {
-							var list = [{% for item in dic["languages"]["query1"]["percentages"][:5] %}
-										"{{item}}",
-										{% endfor %}]
-							return tooltipItem.value + ": " + list[tooltipItem.index]
-						}
-					}
 				}
-			}
-		});
-		//second
-		var data_lang_same = {
-			labels: [{% for item in dic["languages"]["same"]["labels"][:5] %}
-				"{{item}}",
-				{% endfor %}],
-			datasets: [{
-				label: "{{lang_legends[1]}}",	
-				backgroundColor: backgroundColor,
-				data: [{% for item in dic["languages"]["same"]["values"][:5] %}
-					{{item}},
-					{% endfor %}]
-			}]
-		}
-		var lang_same_chart = new Chart(document.getElementById("lang_same"), {
-			type: "horizontalBar",
-			data: data_lang_same,
-			options: {
-				legend: {
-					labels: {
-						boxWidth: 0
+				var timeline_chart = new Chart(document.getElementById("timeline"), {
+					type: "line",
+					data: data_timeline,
+					options: {
+						title: {
+							display: true,
+							text: "Timeline (UTC timezone)",
+							fontSize: 14
+						},
+					    scales: {
+					    	xAxes: [{
+					    		type: "time",
+					    		distribution: 'linear',
+					    		time: {
+					    			unit: "hour",
+					    			displayFormats: {
+					    				hour: "D MMM, HH:00"
+					    			}
+					    		},
+					    		ticks: {
+					    			major: {
+					    				enabled: true,
+					    				fontStyle: 'bold'
+					    			}
+					    		}
+					    	}],
+					    	yAxes: [{
+					    		scaleLabel: {
+					    			display: true,
+					    			labelString: "number of tweets",
+					    			fontStyle: 'bold'
+					    		},
+					    		ticks: {
+					    			beginAtZero: true
+					    		}
+					    	}]
+					    }
 					}
-				},
-				scales: {
-					xAxes: [{
-						ticks: {
-							beginAtZero: true
-						}
+				});
+			</script>
+			<script>
+				//Graphs
+				//Language Graphs
+				//first
+				var data_lang_1 = {
+					labels: [{% for item in dic["languages"]["query1"]["labels"][:5] %}
+						"{{item}}",
+						{% endfor %}],
+					datasets: [{
+						backgroundColor: backgroundColor_1,
+						data: [{% for item in dic["languages"]["query1"]["values"][:5] %}
+							{{item}},
+							{% endfor %}]
 					}]
-				},
-				tooltips: {
-					callbacks: {
-						label: function(tooltipItem, data) {
-							var list = [{% for item in dic["languages"]["same"]["percentages"][:5] %}
-										"{{item}}",
-										{% endfor %}]
-							return tooltipItem.value + ": " + list[tooltipItem.index]
-						}
-					}
 				}
-			}
-		});
-		//third
-		var data_lang_2 = {
-			labels: [{% for item in dic["languages"]["query2"]["labels"][:5] %}
-				"{{item}}",
-				{% endfor %}],
-			datasets: [{
-				label: "{{lang_legends[2]}}",
-				backgroundColor: backgroundColor,
-				data: [{% for item in dic["languages"]["query2"]["values"][:5] %}
-					{{item}},
-					{% endfor %}]
-			}]
-		}
-		var lang_2_chart = new Chart(document.getElementById("lang_2"), {
-			type: "horizontalBar",
-			data: data_lang_2,
-			options: {
-				legend: {
-					labels: {
-						boxWidth: 0
-					}
-				},
-				scales: {
-					xAxes: [{
-						ticks: {
-							beginAtZero: true
+				var lang_1_chart = new Chart(document.getElementById("lang_1"), {
+					type: "horizontalBar",
+					data: data_lang_1,
+					options: {
+						title: {
+							display: true,
+							text: "{{lang_legends[0]}}"
+						},
+						legend: {
+							display: false
+						},
+						scales: {
+							xAxes: [{
+								scaleLabel: {
+					    			display: true,
+					    			labelString: "number of tweets"
+					    		},
+								ticks: {
+									beginAtZero: true
+								}
+							}],
+							yAxes: [{
+								scaleLabel: {
+									display: true,
+									labelString: "ISO 639-1 code"
+								}
+							}],
+						},
+						tooltips: {
+							callbacks: {
+								label: function(tooltipItem, data) {
+									var list = [{% for item in dic["languages"]["query1"]["percentages"][:5] %}
+												"{{item}}",
+												{% endfor %}]
+									return tooltipItem.value + ": " + list[tooltipItem.index]
+								}
+							}
 						}
+					}
+				});
+				//second
+				var data_lang_same = {
+					labels: [{% for item in dic["languages"]["same"]["labels"][:5] %}
+						"{{item}}",
+						{% endfor %}],
+					datasets: [{	
+						backgroundColor: backgroundColor_1,
+						data: [{% for item in dic["languages"]["same"]["values"][:5] %}
+							{{item}},
+							{% endfor %}]
 					}]
-				},
-				tooltips: {
-					callbacks: {
-						label: function(tooltipItem, data) {
-							var list = [{% for item in dic["languages"]["query2"]["percentages"][:5] %}
-										"{{item}}",
-										{% endfor %}]
-							return tooltipItem.value + ": " + list[tooltipItem.index]
+				}
+				var lang_same_chart = new Chart(document.getElementById("lang_same"), {
+					type: "horizontalBar",
+					data: data_lang_same,
+					options: {
+						title: {
+							display: true,
+							text: "{{lang_legends[1]}}"
+						},
+						legend: {
+							display: false
+						},
+						scales: {
+							xAxes: [{
+								scaleLabel: {
+					    			display: true,
+					    			labelString: "number of tweets"
+					    		},
+								ticks: {
+									beginAtZero: true
+								},
+							}],
+							yAxes: [{
+								scaleLabel: {
+									display: true,
+									labelString: "ISO 639-1 code"
+								}
+							}],
+						},
+						tooltips: {
+							callbacks: {
+								label: function(tooltipItem, data) {
+									var list = [{% for item in dic["languages"]["same"]["percentages"][:5] %}
+												"{{item}}",
+												{% endfor %}]
+									return tooltipItem.value + ": " + list[tooltipItem.index]
+								}
+							}
 						}
 					}
+				});
+				//third
+				var data_lang_2 = {
+					labels: [{% for item in dic["languages"]["query2"]["labels"][:5] %}
+						"{{item}}",
+						{% endfor %}],
+					datasets: [{
+						backgroundColor: backgroundColor_1,
+						data: [{% for item in dic["languages"]["query2"]["values"][:5] %}
+							{{item}},
+							{% endfor %}]
+					}]
 				}
-			}
-		});
+				var lang_2_chart = new Chart(document.getElementById("lang_2"), {
+					type: "horizontalBar",
+					data: data_lang_2,
+					options: {
+						title: {
+							display: true,
+							text: "{{lang_legends[2]}}"
+						},
+						legend: {
+							display: false
+						},
+						scales: {
+							xAxes: [{
+								scaleLabel: {
+					    			display: true,
+					    			labelString: "number of tweets"
+					    		},
+								ticks: {
+									beginAtZero: true
+								},
+							}],
+							yAxes: [{
+								scaleLabel: {
+									display: true,
+									labelString: "ISO 639-1 code"
+								}
+							}],
+						},
+						tooltips: {
+							callbacks: {
+								label: function(tooltipItem, data) {
+									var list = [{% for item in dic["languages"]["query2"]["percentages"][:5] %}
+												"{{item}}",
+												{% endfor %}]
+									return tooltipItem.value + ": " + list[tooltipItem.index]
+								}
+							}
+						}
+					}
+				});
 
-		// Interface Graphs
-		//first
-		var data_inter_1 = {
-			labels: [{% for item in dic["interfaces"]["query1"]["labels"][:6] %}
-				"{{item}}",
-				{% endfor %}],
-			datasets: [{
-				label: "{{inter_legends[0]}}",
-				backgroundColor: backgroundColor,
-				data: [{% for item in dic["interfaces"]["query1"]["values"][:6] %}
-					{{item}},
-					{% endfor %}]
-			}]
-		}
-		var inter_1_chart = new Chart(document.getElementById("inter_1"), {
-			type: "horizontalBar",
-			data: data_inter_1,
-			options: {
-				legend: {
-					labels: {
-						boxWidth: 0
-					}
-				},
-				scales: {
-					xAxes: [{
-						ticks: {
-							beginAtZero: true
-						}
+				//Interface Graphs
+				//first
+				var data_inter_1 = {
+					labels: [{% for item in dic["interfaces"]["query1"]["labels"][:10] %}
+						"{{item}}",
+						{% endfor %}],
+					datasets: [{
+						backgroundColor: backgroundColor_2,
+						data: [{% for item in dic["interfaces"]["query1"]["values"][:10] %}
+							{{item}},
+							{% endfor %}]
 					}]
-				},
-				tooltips: {
-					callbacks: {
-						label: function(tooltipItem, data) {
-							var list = [{% for item in dic["interfaces"]["query1"]["percentages"][:6] %}
-										"{{item}}",
-										{% endfor %}]
-							return tooltipItem.value + ": " + list[tooltipItem.index]
-						}
-					}
 				}
-			}
-		});
-		//second
-		var data_inter_same = {
-			labels: [{% for item in dic["interfaces"]["same"]["labels"][:6] %}
-				"{{item}}",
-				{% endfor %}],
-			datasets: [{
-				label: "{{inter_legends[1]}}",
-				backgroundColor: backgroundColor,
-				data: [{% for item in dic["interfaces"]["same"]["values"][:6] %}
-					{{item}},
-					{% endfor %}]
-			}]
-		}
-		var inter_same_chart = new Chart(document.getElementById("inter_same"), {
-			type: "horizontalBar",
-			data: data_inter_same,
-			options: {
-				legend: {
-					labels: {
-						boxWidth: 0
-					}
-				},
-				scales: {
-					xAxes: [{
-						ticks: {
-							beginAtZero: true
+				var inter_1_chart = new Chart(document.getElementById("inter_1"), {
+					type: "horizontalBar",
+					data: data_inter_1,
+					options: {
+						title: {
+							display: true,
+							text: "{{inter_legends[0]}}"
+						},
+						legend: {
+							display: false
+						},
+						scales: {
+							xAxes: [{
+								scaleLabel: {
+									display: true,
+									labelString: "number of tweets"
+								},
+								ticks: {
+									beginAtZero: true
+								}
+							}]
+						},
+						tooltips: {
+							callbacks: {
+								label: function(tooltipItem, data) {
+									var list = [{% for item in dic["interfaces"]["query1"]["percentages"][:10] %}
+												"{{item}}",
+												{% endfor %}]
+									return tooltipItem.value + ": " + list[tooltipItem.index]
+								}
+							}
 						}
+					}
+				});
+				//second
+				var data_inter_same = {
+					labels: [{% for item in dic["interfaces"]["same"]["labels"][:10] %}
+						"{{item}}",
+						{% endfor %}],
+					datasets: [{
+						backgroundColor: backgroundColor_2,
+						data: [{% for item in dic["interfaces"]["same"]["values"][:10] %}
+							{{item}},
+							{% endfor %}]
 					}]
-				},
-				tooltips: {
-					callbacks: {
-						label: function(tooltipItem, data) {
-							var list = [{% for item in dic["interfaces"]["same"]["percentages"][:6] %}
-										"{{item}}",
-										{% endfor %}]
-							return tooltipItem.value + ": " + list[tooltipItem.index]
-						}
-					}
 				}
-			}
-		});
-		//third
-		var data_inter_2 = {
-			labels: [{% for item in dic["interfaces"]["query2"]["labels"][:6] %}
-				"{{item}}",
-				{% endfor %}],
-			datasets: [{
-				label: "{{inter_legends[2]}}",
-				backgroundColor: backgroundColor,
-				data: [{% for item in dic["interfaces"]["query2"]["values"][:6] %}
-					{{item}},
-					{% endfor %}]
-			}]
-		}
-		var inter_2_chart = new Chart(document.getElementById("inter_2"), {
-			type: "horizontalBar",
-			data: data_inter_2,
-			options: {
-				legend: {
-					labels: {
-						boxWidth: 0
-					}
-				},
-				scales: {
-					xAxes: [{
-						ticks: {
-							beginAtZero: true
+				var inter_same_chart = new Chart(document.getElementById("inter_same"), {
+					type: "horizontalBar",
+					data: data_inter_same,
+					options: {
+						title: {
+							display: true,
+							text: "{{inter_legends[1]}}"
+						},
+						legend: {
+							display: false
+						},
+						scales: {
+							xAxes: [{
+								scaleLabel: {
+									display: true,
+									labelString: "number of tweets"
+								},
+								ticks: {
+									beginAtZero: true
+								}
+							}]
+						},
+						tooltips: {
+							callbacks: {
+								label: function(tooltipItem, data) {
+									var list = [{% for item in dic["interfaces"]["same"]["percentages"][:10] %}
+												"{{item}}",
+												{% endfor %}]
+									return tooltipItem.value + ": " + list[tooltipItem.index]
+								}
+							}
 						}
+					}
+				});
+				//third
+				var data_inter_2 = {
+					labels: [{% for item in dic["interfaces"]["query2"]["labels"][:10] %}
+						"{{item}}",
+						{% endfor %}],
+					datasets: [{
+						backgroundColor: backgroundColor_2,
+						data: [{% for item in dic["interfaces"]["query2"]["values"][:10] %}
+							{{item}},
+							{% endfor %}]
 					}]
-				},
-				tooltips: {
-					callbacks: {
-						label: function(tooltipItem, data) {
-							var list = [{% for item in dic["interfaces"]["query2"]["percentages"][:6] %}
-										"{{item}}",
-										{% endfor %}]
-							return tooltipItem.value + ": " + list[tooltipItem.index]
+				}
+				var inter_2_chart = new Chart(document.getElementById("inter_2"), {
+					type: "horizontalBar",
+					data: data_inter_2,
+					options: {
+						title: {
+							display: true,
+							text: "{{inter_legends[2]}}"
+						},
+						legend: {
+							display: false
+						},
+						scales: {
+							xAxes: [{
+								scaleLabel: {
+									display: true,
+									labelString: "number of tweets"
+								},
+								ticks: {
+									beginAtZero: true
+								}
+							}]
+						},
+						tooltips: {
+							callbacks: {
+								label: function(tooltipItem, data) {
+									var list = [{% for item in dic["interfaces"]["query2"]["percentages"][:10] %}
+												"{{item}}",
+												{% endfor %}]
+									return tooltipItem.value + ": " + list[tooltipItem.index]
+								}
+							}
 						}
 					}
-				}
-			}
-		});
+				});
 
-		//Co-hashtag Graphs
-		//first
-		var data_co_1 = {
-			labels: [{% for item in dic["co_hashtags"]["query1"]["labels"][:10] %}
-			"{{item}}",
-			{% endfor %}],
-			datasets: [{
-				label: "{{co_legends[0]}}",
-				backgroundColor: backgroundColor,
-				data: [{% for item in dic["co_hashtags"]["query1"]["values"][:10] %}
-				{{item}},
-				{% endfor %}]
-			}]
-		}
-		var co_chart_1 = new Chart(document.getElementById("co_1"), {
-			type: "horizontalBar",
-			data: data_co_1,
-			options: {
-				legend: {
-					labels: {
-						boxWidth: 0
-					}
-				},
-				scales: {
-					xAxes: [{
-						ticks: {
-							beginAtZero: true
-						}
+				//Co-hashtag Graphs
+				//first
+				var data_co_1 = {
+					labels: [{% for item in dic["co_hashtags"]["query1"]["labels"][:10] %}
+					"{{item}}",
+					{% endfor %}],
+					datasets: [{
+						backgroundColor: backgroundColor_3,
+						data: [{% for item in dic["co_hashtags"]["query1"]["values"][:10] %}
+						{{item}},
+						{% endfor %}]
 					}]
-				},
-				tooltips: {
-					callbacks: {
-						label: function(tooltipItem, data) {
-							var list = [{% for item in dic["co_hashtags"]["query1"]["percentages"][:10] %}
-										"{{item}}",
-										{% endfor %}]
-							return tooltipItem.value + ": " + list[tooltipItem.index]
-						}
-					}
 				}
-			}
-		});
-		//second
-		var data_co_same = {
-			labels: [{% for item in dic["co_hashtags"]["same"]["labels"][:10] %}
-			"{{item}}",
-			{% endfor %}],
-			datasets: [{
-				label: "{{co_legends[1]}}",
-				backgroundColor: backgroundColor,
-				data: [{% for item in dic["co_hashtags"]["same"]["values"][:10] %}
-				{{item}},
-				{% endfor %}]
-			}]
-		}
-		var co_chart_same = new Chart(document.getElementById("co_same"), {
-			type: "horizontalBar",
-			data: data_co_same,
-			options: {
-				legend: {
-					labels: {
-						boxWidth: 0
-					}
-				},
-				scales: {
-					xAxes: [{
-						ticks: {
-							beginAtZero: true
+				var co_chart_1 = new Chart(document.getElementById("co_1"), {
+					type: "horizontalBar",
+					data: data_co_1,
+					options: {
+						title: {
+							display: true,
+							text: "{{co_legends[0]}}"
+						},
+						legend: {
+							display: false
+						},
+						scales: {
+							xAxes: [{
+								scaleLabel: {
+									display: true,
+									labelString: "number of tweets"
+								},
+								ticks: {
+									beginAtZero: true
+								}
+							}]
+						},
+						tooltips: {
+							callbacks: {
+								label: function(tooltipItem, data) {
+									var list = [{% for item in dic["co_hashtags"]["query1"]["percentages"][:10] %}
+												"{{item}}",
+												{% endfor %}]
+									return tooltipItem.value + ": " + list[tooltipItem.index]
+								}
+							}
 						}
+					}
+				});
+				//second
+				var data_co_same = {
+					labels: [{% for item in dic["co_hashtags"]["same"]["labels"][:10] %}
+					"{{item}}",
+					{% endfor %}],
+					datasets: [{
+						backgroundColor: backgroundColor_3,
+						data: [{% for item in dic["co_hashtags"]["same"]["values"][:10] %}
+						{{item}},
+						{% endfor %}]
 					}]
-				},
-				tooltips: {
-					callbacks: {
-						label: function(tooltipItem, data) {
-							var list = [{% for item in dic["co_hashtags"]["same"]["percentages"][:10] %}
-										"{{item}}",
-										{% endfor %}]
-							return tooltipItem.value + ": " + list[tooltipItem.index]
-						}
-					}
 				}
-			}
-		});
-		//third
-		var data_co_2 = {
-			labels: [{% for item in dic["co_hashtags"]["query2"]["labels"][:10] %}
-			"{{item}}",
-			{% endfor %}],
-			datasets: [{
-				label: "{{co_legends[2]}}",
-				backgroundColor: backgroundColor,
-				data: [{% for item in dic["co_hashtags"]["query2"]["values"][:10] %}
-				{{item}},
-				{% endfor %}]
-			}]
-		}
-		var co_chart_2 = new Chart(document.getElementById("co_2"), {
-			type: "horizontalBar",
-			data: data_co_2,
-			options: {
-				legend: {
-					labels: {
-						boxWidth: 0
-					}
-				},
-				scales: {
-					xAxes: [{
-						ticks: {
-							beginAtZero: true
+				var co_chart_same = new Chart(document.getElementById("co_same"), {
+					type: "horizontalBar",
+					data: data_co_same,
+					options: {
+						title: {
+							display: true,
+							text: "{{co_legends[1]}}"
+						},
+						legend: {
+							display: false
+						},
+						scales: {
+							xAxes: [{
+								scaleLabel: {
+									display: true,
+									labelString: "number of tweets"
+								},
+								ticks: {
+									beginAtZero: true
+								}
+							}]
+						},
+						tooltips: {
+							callbacks: {
+								label: function(tooltipItem, data) {
+									var list = [{% for item in dic["co_hashtags"]["same"]["percentages"][:10] %}
+												"{{item}}",
+												{% endfor %}]
+									return tooltipItem.value + ": " + list[tooltipItem.index]
+								}
+							}
 						}
+					}
+				});
+				//third
+				var data_co_2 = {
+					labels: [{% for item in dic["co_hashtags"]["query2"]["labels"][:10] %}
+					"{{item}}",
+					{% endfor %}],
+					datasets: [{
+						backgroundColor: backgroundColor_3,
+						data: [{% for item in dic["co_hashtags"]["query2"]["values"][:10] %}
+						{{item}},
+						{% endfor %}]
 					}]
-				},
-				tooltips: {
-					callbacks: {
-						label: function(tooltipItem, data) {
-							var list = [{% for item in dic["co_hashtags"]["query2"]["percentages"][:10] %}
-										"{{item}}",
-										{% endfor %}]
-							return tooltipItem.value + ": " + list[tooltipItem.index]
+				}
+				var co_chart_2 = new Chart(document.getElementById("co_2"), {
+					type: "horizontalBar",
+					data: data_co_2,
+					options: {
+						title: {
+							display: true,
+							text: "{{co_legends[2]}}"
+						},
+						legend: {
+							display: false
+						},
+						scales: {
+							xAxes: [{
+								scaleLabel: {
+									display: true,
+									labelString: "number of tweets"
+								},
+								ticks: {
+									beginAtZero: true
+								}
+							}]
+						},
+						tooltips: {
+							callbacks: {
+								label: function(tooltipItem, data) {
+									var list = [{% for item in dic["co_hashtags"]["query2"]["percentages"][:10] %}
+												"{{item}}",
+												{% endfor %}]
+									return tooltipItem.value + ": " + list[tooltipItem.index]
+								}
+							}
 						}
 					}
-				}
-			}
-		});
-	</script>
-	{{ table_1 | safe }}
-	{{ table_same | safe }}
-	{{ table_2 | safe }}
-	<div>
-		<p><a href="{{csv_download_link}}">Download raw data</a></p>
-	</div>
-</div>
+				});
+			</script>
 {% endblock %}

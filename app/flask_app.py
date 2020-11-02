@@ -5,9 +5,11 @@ import datetime
 from dateutil import parser
 from datetime import timedelta
 import os
+import json
 
 app = Flask(__name__)
-app.secret_key = b'_0#e5L"F4k8zn6xeJ]/'
+app.secret_key = b'_0#e5L"F4sk8Zn6xeJ]/'
+
 
 @app.route("/", methods=["GET"])
 def home():
@@ -31,41 +33,37 @@ def home():
 		search_option = request.args.get("search_option", "")
 
 		if query1 and query2:
-			if since or until or howMany:
-				now = datetime.date.today()
-				#check if since was chosen
-				if since_option:
-					#check for correct time chosen
-					since = parser.parse(since).date()
-					if (now - since) <= timedelta(days=7) and (now - since) >= timedelta(days=0):
-						session["since"] = since
-					else:
-						error = "The date for the start of the sample is incorrect. The Twitter API only allows searches in the past 7 days, not any further. Also you cannot pick dates from the future."
-						return render_template("home.html", error=error, date1=since)
+			now = datetime.date.today()
+			#check if since was chosen
+			if since_option:
+				#check for correct time chosen
+				since = parser.parse(since).date()
+				if (now - since) <= timedelta(days=7) and (now - since) >= timedelta(days=0):
+					session["since"] = since
 				else:
-					session.pop("since", None)
-				#check if until was chosen
-				if until_option:
-					#check for correct time chosen
-					until = parser.parse(until).date()
-					if (until - now) <= timedelta(days=7) and (now - until) >= timedelta(days=0):
-						if since_option:
-							if (since - until) >= timedelta(days=1):
-								session["until"] = until
-							else:
-								error = "The start of the search must be a later date than the end of the search. The tool collects tweets going backwards in time."
-								return render_template("home.html", error=error, date1=since, date2=until)
-
-						else:
-							session["until"] = until
-					else:
-						error = "The date for the end of the sample is incorrect. The Twitter API only allows searches in the past 7 days, not any further. Also you cannot pick dates from the future."
-						return render_template("home.html", error=error, date1=until)
-				else:
-					session.pop("until", None)
+					error = "The date for the start of the sample is incorrect. The Twitter API only allows searches in the past 7 days, not any further. Also you cannot pick dates from the future."
+					return render_template("home.html", error=error, date1=since)
 			else:
-				error = "At least one option for limiting the search must be checked. If you don't want to limit anything, check the startdate and choose today."
-				return render_template("home.html", error=error)
+				session.pop("since", None)
+			#check if until was chosen
+			if until_option:
+				#check for correct time chosen
+				until = parser.parse(until).date()
+				if (until - now) <= timedelta(days=7) and (now - until) >= timedelta(days=0):
+					if since_option:
+						if (since - until) >= timedelta(days=1):
+							session["until"] = until
+						else:
+							error = "The start of the search must be a later date than the end of the search. The tool collects tweets going backwards in time."
+							return render_template("home.html", error=error, date1=since, date2=until, status=status)
+
+					else:
+						session["until"] = until
+				else:
+					error = "The date for the end of the sample is incorrect. The Twitter API only allows searches in the past 7 days, not any further. Also you cannot pick dates from the future."
+					return render_template("home.html", error=error, date1=until, status=status)
+			else:
+				session.pop("until", None)
 
 			#make sure hashtags are used
 			if query1[0] != "#":
@@ -75,7 +73,8 @@ def home():
 
 			#check if howMany is given
 			if howMany_option:
-				session["howMany"] = int(howMany) if int(howMany) > 100 else 100
+				howMany = int(howMany) if howMany else 100
+				session["howMany"] = howMany if howMany > 100 else 100
 			else:
 				session.pop("howMany", None)
 			#create session variables
@@ -91,14 +90,14 @@ def home():
 
 		elif query1 or query2 or since or until or howMany:
 			error = "Not all necessary fields were filled out."
-			return render_template("home.html", error=error)
+			return render_template("home.html", error=error, status=status)
 
 	return render_template("home.html", status=status)
 
 @app.route("/htool")
 def htool():
 	"""
-	This page is the results screen of the tool.
+	This page acts as the results screen of the tool.
 	"""
 	if "query1" and "query2" in session:
 		#create variables for search_parameter
@@ -122,45 +121,44 @@ def htool():
 		#check for error	
 		if outcome.error == True:
 			abort(409)
-		
-		df = outcome.overview()
-		#Convert tables to html code
-		html_table_1 = df[[session.get("query1")]].to_html()
-		html_table_same = df[["tweets with both hashtags"]].to_html()
-		html_table_2 = df[[session.get("query2")]].to_html()
-	
-		dic = outcome.graph()
+
+		#individual json filename
+		time_name = datetime.datetime.now().strftime('%Y%m%d-%H%M%S')
+		query1 = session.get("query1")[1:]
+		query2 = session.get("query2")[1:]
+
+		json_filename = f"THA-{time_name}-{query1}-{query2}.json"
+		session["json_filename"] = json_filename
+		dic = outcome.graph(json_filename)
+
 		#languages legends
 		lang_legends = [
-			str(session.get("query1")) + " , languages, top 5",
-			"both hashtags" + ", languages, top 5",
-			str(session.get("query2")) + " , languages, top 5"]
+			"Top 5 Languages for: " + str(session.get("query1")),
+			"Top 5 Languages",
+			"Top 5 Languages for: " + str(session.get("query2"))]
 
 		#interface legends
 		inter_legends = [
-			str(session.get("query1")) + " , interfaces, top 5",
-			"both hashtags" + " , interfaces, top 5",
-			str(session.get("query2")) + " , interfaces, top 5"]
+			"Top 10 Interfaces for: " + str(session.get("query1")),
+			"Top 10 interfaces",
+			"Top 10 interfaces for: " + str(session.get("query2"))]
 
 		#co-hashtag legends
 		co_legends = [
-		str(session.get("query1")) + " , Co-hashtags, top 10",
-		"both hashtags" + " , Co-hashtags, top 10",
-		str(session.get("query2")) + " , Co-hashtags, top 10"]
+			"Top 10 Co-Hashtags for: " + str(session.get("query1")),
+			"Top 10 Co-Hashtags",
+			"Top 10 Co-Hashtags for: " + str(session.get("query2"))]
 
 		#timeline legends
 		timeline_legends = [str(session.get("query1")), "both hashtags" ,str(session.get("query2"))]
 
 		#create search_parameters for website
-		search_parameters = [session.get("query1"), session.get("query2"), since, until, howMany, session.get("search_option"), len(outcome.results_raw)]
+		search_parameters = [session.get("query1"), session.get("query2"), since, until, howMany, session.get("search_option"),
+							outcome.number_of_tweets, outcome.end_message]
 
 		#csv download
 		df = outcome.tweets_to_df()
-
-		csv_name = datetime.datetime.now().strftime('%Y%m%d-%H%M%S')
-		query1 = session.get("query1")[1:]
-		query2 = session.get("query2")[1:]
-		csv_filename = f"THA-{csv_name}-{query1}-{query2}.csv"
+		csv_filename = f"THA-{time_name}-{query1}-{query2}.csv"
 
 		outpath = os.path.join('static', 'downloads')
 		if not os.path.isdir(outpath):
@@ -169,18 +167,40 @@ def htool():
 
 		df.to_csv(csv_download_link, sep=";")
 
+		#gexf download
+		gexf_filename = f"THA-{time_name}-{query1}-{query2}.gexf"
+		gexf_download_link = os.path.join(outpath, gexf_filename)
+		outcome.create_gexf_data(gexf_filename)
+
 		return render_template("htool.html",
-			table_1=html_table_1, table_same=html_table_same, table_2=html_table_2,
+			tables=outcome.overview(),
 			lang_legends=lang_legends, inter_legends=inter_legends, co_legends=co_legends, timeline_legends=timeline_legends,
-			dic=dic, search_parameters=search_parameters, csv_download_link=csv_download_link)
+			dic=dic, search_parameters=search_parameters, csv_download_link=csv_download_link, gexf_download_link=gexf_download_link)
+	else:
+		return """<p>This site does not exist<p>"""
 
-@app.route("/about")
-def about():
-	return render_template("about.html")
+@app.route("/complete_lists")
+def complete_lists():
+	if "json_filename" and "query1" and "query2" in session:
+		count = 0
+		df_list = []
+		name_list = [session.get("query1"), "both hashtags", session.get("query2")]
+		with open("static/json/"+session.get("json_filename")) as file:
+			dic = json.load(file)
+		for topic in dic:
+			if topic != "timeline":
+				for x, query in enumerate(dic[topic]):
+					df = pd.DataFrame()
+					for kind in dic[topic][query]:
+						for j, ele in enumerate(dic[topic][query][kind]):
+							df.loc[j, kind] = ele
+					df = df.to_html(index=False)
+					df_list.append((df, topic, name_list[x], count))
+					count += 1
 
-@app.route("/datenschutz")
-def datenschutz():
-	return render_template("datenschutz.html")
+		return render_template("complete_lists.html", tables=df_list)
+
+	return render_template("complete_lists.html")
 
 @app.errorhandler(409)
 def rate_limit_exceeded(error):
@@ -188,4 +208,4 @@ def rate_limit_exceeded(error):
 	return render_template("error.html", status=status), 409
 
 if __name__ == "__main__":
-	app.run(debug=True)
+	app.run(debug=True, use_reloader=True)

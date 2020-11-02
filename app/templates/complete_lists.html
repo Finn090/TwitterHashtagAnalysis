@@ -1,0 +1,18 @@
+{% extends "layout.html" %}
+{% block content %}
+			<div class="row">
+				<h2>Complete data used for the different graphs, except the timeline graph</h2>
+			</div>
+			{% for table in tables %}
+			{% if table[3]==0 or table[3]==3 or table[3]==6 %}
+			<div class="row">
+			{% endif %}
+				<div class="col-sm-4 complete-tables">
+					<h3>{{table[1]}}, {{table[2]}}</h3>
+					{{table[0] | safe}}
+				</div>
+			{% if table[3]==2 or table[3]==5 or table[3]==8 %}
+			</div>
+			{% endif %}
+			{% endfor %}
+{% endblock %}
