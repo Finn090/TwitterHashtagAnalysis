@@ -1,3 +1,4 @@
 app/__pycache__/twTool.cpython-37.pyc
 app/static/downloads/*.csv
+app/static/downloads/*.gexf
 app/static/json/*.json
